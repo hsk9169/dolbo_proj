@@ -35,7 +35,6 @@ class _SplashView extends State<SplashView> {
   Future<void> _initData() async {
     await _encryptedStorageService.initStorage();
     await _getStoredData();
-    print('debug 8');
   }
 
   Future<void> _getStoredData() async {
@@ -48,11 +47,9 @@ class _SplashView extends State<SplashView> {
     listNum = await _encryptedStorageService.readData('list_num');
     curLocation = await _getCurrentLocation();
     if (curLocation.latitude < 0 || curLocation.longitude < 0) {
-      print('debug 3');
       nearest = await _realApiService.getNearestDolboList(
           37.48319126127905, 127.01326680880636);
     } else {
-      print('debug 4');
       nearest = await _realApiService.getNearestDolboList(
           curLocation.latitude, curLocation.longitude);
     }
@@ -60,15 +57,12 @@ class _SplashView extends State<SplashView> {
     if (listNum.isNotEmpty) {
       platformProvider.myDolboListNum = int.parse(listNum);
       for (int i = 0; i < int.parse(listNum); i++) {
-        print('debug $i');
         final id = await _encryptedStorageService.readData('element_$i');
         if (id.isNotEmpty) {
-          print(id);
           final res = await _realApiService.getDolboData(id);
           myList.add(res);
         }
       }
-      print('debug 7');
     }
     platformProvider.myDolboList = myList;
     platformProvider.defualtDolbo = nearest;
@@ -81,10 +75,8 @@ class _SplashView extends State<SplashView> {
     setState(() => _debugLevel++);
     if (isPermitted) {
       curPosition = await _locationService.getCurrentLocation();
-      print('debug 1');
     } else {
       curPosition = const LatLng(37.48319126127905, 127.01326680880636);
-      print('debug 2');
     }
     setState(() => _debugLevel++);
     return curPosition;
@@ -92,9 +84,7 @@ class _SplashView extends State<SplashView> {
 
   Future<void> _routeToHome() async {
     await _encryptedStorageService.readData('last_seen').then((pageNum) {
-      print('debug 9');
       Future.delayed(const Duration(seconds: 1), () {
-        print('debug 10');
         Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(

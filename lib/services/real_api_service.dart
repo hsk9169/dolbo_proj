@@ -121,25 +121,18 @@ class RealApiService implements Api {
           headers: <String, String>{
             'Content-Type': 'application/json; charset=utf-8',
           });
-      print('sub debug 1');
       final body = jsonDecode(res.body);
       if (body['result'] == 'success') {
-        print('sub debug 2');
         return DolboModel.fromJson(body['data']);
       } else {
-        print('sub debug 3');
         return body['message'];
       }
     } catch (err) {
-      print('sub debug 4');
       if (err is SocketException) {
-        print('sub debug 5');
         return 'SOCKET_EXCEPTION';
       } else if (err is TimeoutException) {
-        print('sub debug 6');
         return 'SERVER_TIMEOUT';
       } else {
-        print('sub debug 7');
         return 'UNKNOWN_ERROR';
       }
     }

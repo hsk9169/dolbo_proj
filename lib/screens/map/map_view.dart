@@ -10,12 +10,9 @@ import 'package:dolbo_app/models/dolbo_model.dart';
 import 'package:dolbo_app/const/dolbo_state.dart';
 import 'package:dolbo_app/utils/number_handler.dart';
 import 'package:dolbo_app/providers/platform_provider.dart';
-import 'package:dolbo_app/services/fake_api_service.dart';
-import 'package:dolbo_app/services/naver_api_service.dart';
 import 'package:dolbo_app/const/colors.dart';
 import 'package:dolbo_app/const/dolbo_state.dart';
 import 'package:dolbo_app/services/encrypted_storage_service.dart';
-import 'package:dolbo_app/services/location_service.dart';
 import './map_marker.dart';
 
 class MapView extends StatefulWidget {
@@ -40,11 +37,11 @@ class _MapView extends State<MapView> {
   CameraPosition _cameraPosition = CameraPosition(
       target: LatLng(36.35052084022028, 127.38484589824647), zoom: 14.0);
 
-  int _selected = 0;
+  int _selected = -1;
+  bool _isCameraChangedByGesture = false;
 
   final _realApiService = RealApiService();
   final _encryptedStorageService = EncryptedStorageService();
-  final _locationService = LocationService();
 
   List<DolboModel> _searchResultList = [];
 
@@ -86,6 +83,17 @@ class _MapView extends State<MapView> {
     return isContained;
   }
 
+  void _onCameraChange() async {
+    if (!_isCameraChangedByGesture) {
+      _resetTempData();
+      Future.delayed(const Duration(milliseconds: 200), () {
+        _mapController.getVisibleRegion().then((bounds) async {
+          await _setMarker(bounds, 'null');
+        });
+      });
+    }
+  }
+
   void _removeDolbo(DolboModel target) {
     final temp = [];
     _myDolboList.value.forEach((dynamic element) => temp.add(element));
@@ -101,6 +109,16 @@ class _MapView extends State<MapView> {
     setState(() => _myDolboList.value.add(dolboDetails));
   }
 
+  void _resetTempData() {
+    setState(() {
+      _selected = -1;
+      _searchDolboList = [];
+      _addressList = [];
+      _nameList = [];
+      _markerList.value = [];
+    });
+  }
+
   void _setMarkerOnMap(int index, DolboModel dolboData) async {
     _markerList.value[index].setOnMarkerTab((marker, iconSize) {
       _onTapMarker(index);
@@ -108,13 +126,17 @@ class _MapView extends State<MapView> {
   }
 
   void _onTapMarker(int index) async {
+    setState(() => _isCameraChangedByGesture = true);
+    await _mapController.moveCamera(CameraUpdate.scrollTo(LatLng(
+        _searchDolboList[index].latitude, _searchDolboList[index].longitude)));
     setState(() {
-      _markerList.value[_selected].setMarkerSmall(context);
+      _isCameraChangedByGesture = false;
+      if (_selected >= 0) {
+        _markerList.value[_selected].setMarkerSmall(context);
+      }
       _selected = index;
       _markerList.value[index].setMarkerBig(context);
     });
-    _mapController.moveCamera(CameraUpdate.scrollTo(LatLng(
-        _searchDolboList[index].latitude, _searchDolboList[index].longitude)));
   }
 
   void _onTextChanged() {}
@@ -123,11 +145,8 @@ class _MapView extends State<MapView> {
     if (address.isNotEmpty) {
       setState(() => _isLoading.value = true);
       final res = await _realApiService.getDolboListByKeyword(address);
+      _resetTempData();
       setState(() {
-        _searchDolboList = [];
-        _addressList = [];
-        _nameList = [];
-        _markerList.value = [];
         _searchResultList = res;
         res.forEach((DolboModel element) {
           _nameList.add(element.name!);
@@ -139,6 +158,20 @@ class _MapView extends State<MapView> {
     }
   }
 
+  void _onTapAddressFromList(int index) async {
+    setState(() => _isCameraChangedByGesture = false);
+    await _mapController.moveCamera(CameraUpdate.toCameraPosition(
+        CameraPosition(
+            target: LatLng(_searchResultList[index].latitude!,
+                _searchResultList[index].longitude!),
+            zoom: 14.0)));
+    Future.delayed(const Duration(milliseconds: 200), () {
+      _mapController.getVisibleRegion().then((bounds) async {
+        await _setMarker(bounds, _searchResultList[index].id!);
+      });
+    });
+  }
+
   void _onDeleteText() {
     _textController.text = '';
     setState(() {
@@ -146,15 +179,6 @@ class _MapView extends State<MapView> {
       _addressList = [];
       _nameList = [];
     });
-  }
-
-  Future<void> _onSelectAddress(String id, LatLngBounds bounds) async {
-    await _setMarker(bounds, id);
-  }
-
-  Future<LatLngBounds> _getLatLngBounds() async {
-    final bounds = await _mapController.getVisibleRegion();
-    return bounds;
   }
 
   Future<void> _setMarker(LatLngBounds bounds, String? selectedId) async {
@@ -329,7 +353,9 @@ class _MapView extends State<MapView> {
                       value.isNotEmpty
                           ? Align(
                               alignment: Alignment.bottomCenter,
-                              child: _dolboPopup(_searchDolboList[_selected]))
+                              child: _selected < 0
+                                  ? null
+                                  : _dolboPopup(_searchDolboList[_selected]))
                           : SizedBox(),
                     ]);
                   })),
@@ -339,15 +365,15 @@ class _MapView extends State<MapView> {
   Widget _renderNaverMap(List<MapMarker> markerList) {
     return SizedBox(
         child: NaverMap(
-      zoomGestureEnable: true,
-      onMapCreated: (NaverMapController ct) {
-        _mapController = ct;
-      },
-      mapType: _mapType,
-      markers: markerList,
-      locationButtonEnable: true,
-      initialCameraPosition: _cameraPosition,
-    ));
+            zoomGestureEnable: true,
+            onMapCreated: (NaverMapController ct) {
+              _mapController = ct;
+            },
+            mapType: _mapType,
+            markers: markerList,
+            locationButtonEnable: true,
+            initialCameraPosition: _cameraPosition,
+            onCameraIdle: () => _onCameraChange()));
   }
 
   List<Widget> _renderAddressList() {
@@ -372,18 +398,7 @@ class _MapView extends State<MapView> {
                 softWrap: false),
             width: context.pWidth,
             color: Colors.white),
-        onTap: () async {
-          await _mapController.moveCamera(CameraUpdate.toCameraPosition(
-              CameraPosition(
-                  target: LatLng(_searchResultList[index].latitude!,
-                      _searchResultList[index].longitude!),
-                  zoom: 14.0)));
-          Future.delayed(const Duration(milliseconds: 200), () {
-            _mapController.getVisibleRegion().then((bounds) {
-              _onSelectAddress(_searchResultList[index].id!, bounds);
-            });
-          });
-        });
+        onTap: () => _onTapAddressFromList(index));
   }
 
   Widget _searchIcon() {

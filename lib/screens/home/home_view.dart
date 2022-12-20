@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
-import 'package:share/share.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:modal_side_sheet/modal_side_sheet.dart';
 import 'package:dolbo_app/sizes.dart';
 import 'package:dolbo_app/routes.dart';
@@ -13,7 +13,6 @@ import 'package:dolbo_app/const/dolbo_state.dart';
 import 'package:dolbo_app/const/colors.dart';
 import 'package:dolbo_app/services/encrypted_storage_service.dart';
 import 'package:dolbo_app/utils/number_handler.dart';
-
 import './dolbo_state.dart';
 import './dolbo_chart.dart';
 import './dolbo_metric.dart';
