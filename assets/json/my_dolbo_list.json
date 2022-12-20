@@ -1,0 +1,187 @@
+{
+    "result": "success",
+    "query": {
+        "key": "94a142-0e4a59-1d5786-a05ebb-efff43"
+    },
+    "summary": {
+        "totalCount": 18,
+        "count": 18
+    },
+    "data": [
+        {
+            "id": "place.2022-000018",
+            "type": "STEPPING_STONE",
+            "name": "원신흥교 돌보",
+            "address": "대전 유성구 봉명동 1071",
+            "latitude": 36.343765,
+            "longitude": 127.34325,
+            "state": "ACTIVE",
+            "safety": "UNKNOWN",
+            "sensors": [
+                {
+                    "type": "HUMIDITY",
+                    "indicator": {},
+                    "safety": "UNKNOWN"
+                },
+                {
+                    "type": "TRAFFIC",
+                    "indicator": {},
+                    "safety": "UNKNOWN"
+                },
+                {
+                    "type": "TEMPERATURE",
+                    "indicator": {},
+                    "safety": "UNKNOWN"
+                },
+                {
+                    "type": "WATER_LEVEL",
+                    "indicator": {
+                        "warning": 105.0,
+                        "danger": 115.0
+                    },
+                    "safety": "UNKNOWN"
+                }
+            ]
+        },
+        {
+            "id": "place.2022-000017",
+            "type": "BRIDGE",
+            "name": "진잠천 다리",
+            "address": "대전 유성구 봉명동 998",
+            "latitude": 36.34687,
+            "longitude": 127.3494,
+            "state": "ACTIVE",
+            "safety": "UNKNOWN",
+            "sensors": [
+                {
+                    "type": "HUMIDITY",
+                    "indicator": {},
+                    "safety": "UNKNOWN"
+                },
+                {
+                    "type": "TRAFFIC",
+                    "indicator": {},
+                    "safety": "UNKNOWN"
+                },
+                {
+                    "type": "TEMPERATURE",
+                    "indicator": {},
+                    "safety": "UNKNOWN"
+                },
+                {
+                    "type": "WATER_LEVEL",
+                    "indicator": {
+                        "warning": 135.0,
+                        "danger": 145.0
+                    },
+                    "safety": "UNKNOWN"
+                }
+            ]
+        },
+        {
+            "id": "place.2022-000016",
+            "type": "OVERFLOW_BRIDGE",
+            "name": "유등천 세월교",
+            "address": "대전 서구 둔산동 1556",
+            "latitude": 36.360157,
+            "longitude": 127.40074,
+            "state": "ACTIVE",
+            "safety": "UNKNOWN",
+            "sensors": [
+                {
+                    "type": "HUMIDITY",
+                    "indicator": {},
+                    "safety": "UNKNOWN"
+                },
+                {
+                    "type": "TRAFFIC",
+                    "indicator": {},
+                    "safety": "UNKNOWN"
+                },
+                {
+                    "type": "TEMPERATURE",
+                    "indicator": {},
+                    "safety": "UNKNOWN"
+                },
+                {
+                    "type": "WATER_LEVEL",
+                    "indicator": {
+                        "warning": 134.0,
+                        "danger": 144.0
+                    },
+                    "safety": "UNKNOWN"
+                }
+            ]
+        },
+        {
+            "id": "place.2022-000015",
+            "type": "OVERFLOW_BRIDGE",
+            "name": "대화대교 세월교",
+            "address": "대전 대덕구 대화동 491-8",
+            "latitude": 36.370377,
+            "longitude": 127.394745,
+            "state": "ACTIVE",
+            "safety": "UNKNOWN",
+            "sensors": [
+                {
+                    "type": "HUMIDITY",
+                    "indicator": {},
+                    "safety": "UNKNOWN"
+                },
+                {
+                    "type": "TRAFFIC",
+                    "indicator": {},
+                    "safety": "UNKNOWN"
+                },
+                {
+                    "type": "TEMPERATURE",
+                    "indicator": {},
+                    "safety": "UNKNOWN"
+                },
+                {
+                    "type": "WATER_LEVEL",
+                    "indicator": {
+                        "warning": 135.0,
+                        "danger": 145.0
+                    },
+                    "safety": "UNKNOWN"
+                }
+            ]
+        },
+        {
+            "id": "place.2022-000014",
+            "type": "STEPPING_STONE",
+            "name": "유성대교 돌보",
+            "address": "대전 유성구 봉명동 660",
+            "latitude": 36.35921,
+            "longitude": 127.350464,
+            "state": "ACTIVE",
+            "safety": "UNKNOWN",
+            "sensors": [
+                {
+                    "type": "HUMIDITY",
+                    "indicator": {},
+                    "safety": "UNKNOWN"
+                },
+                {
+                    "type": "TRAFFIC",
+                    "indicator": {},
+                    "safety": "UNKNOWN"
+                },
+                {
+                    "type": "TEMPERATURE",
+                    "indicator": {},
+                    "safety": "UNKNOWN"
+                },
+                {
+                    "type": "WATER_LEVEL",
+                    "indicator": {
+                        "warning": 190.0,
+                        "danger": 200.0
+                    },
+                    "safety": "UNKNOWN"
+                }
+            ]
+        }
+    ]
+}
