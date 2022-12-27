@@ -11,6 +11,9 @@ import 'package:encrypt/encrypt.dart';
  * * * 'element_{index}': {place.id}
  * * Last Seen Page in Main Page
  * * * 'last_seen': {page_num}
+ * * Alarm Setting
+ * * * 'alarm_allowed': {'TRUE' or 'FALSE'}
+ * * * 'alarm_threshold': {'WARNING' or 'DANGER'}
  */
 class EncryptedStorageService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();

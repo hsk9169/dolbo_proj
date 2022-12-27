@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:dolbo_app/services/real_api_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +14,7 @@ import 'package:dolbo_app/providers/platform_provider.dart';
 import 'package:dolbo_app/const/colors.dart';
 import 'package:dolbo_app/const/dolbo_state.dart';
 import 'package:dolbo_app/services/encrypted_storage_service.dart';
+import 'package:dolbo_app/utils/topic_handler.dart';
 import './map_marker.dart';
 
 class MapView extends StatefulWidget {
@@ -35,7 +37,7 @@ class _MapView extends State<MapView> {
       ValueNotifier<List<MapMarker>>([]);
   List<DolboModel> _searchDolboList = [];
   CameraPosition _cameraPosition = CameraPosition(
-      target: LatLng(36.35052084022028, 127.38484589824647), zoom: 14.0);
+      target: LatLng(36.35052084022028, 127.38484589824647), zoom: 12.0);
 
   int _selected = -1;
   bool _isCameraChangedByGesture = false;
@@ -52,7 +54,8 @@ class _MapView extends State<MapView> {
     _initStorage();
 
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
-      _initData();
+      await _initData();
+      _onCameraChange();
     });
   }
 
@@ -66,7 +69,7 @@ class _MapView extends State<MapView> {
     await _encryptedStorageService.initStorage();
   }
 
-  void _initData() async {
+  Future<void> _initData() async {
     final platformProvider = Provider.of<Platform>(context, listen: false);
     setState(() {
       _myDolboList.value = platformProvider.myDolboList;
@@ -94,19 +97,60 @@ class _MapView extends State<MapView> {
     }
   }
 
-  void _removeDolbo(DolboModel target) {
+  void _removeDolbo(DolboModel target) async {
+    final platformProvider = Provider.of<Platform>(context, listen: false);
+    int? idx;
+    if (platformProvider.isAlarmAllowed) {
+      final warningTopic =
+          TopicHandler().makeTopicStr(target.id!, dolboState.DANGER);
+      await FirebaseMessaging.instance.unsubscribeFromTopic(warningTopic);
+      final dangerTopic =
+          TopicHandler().makeTopicStr(target.id!, dolboState.OVERFLOW);
+      await FirebaseMessaging.instance.unsubscribeFromTopic(dangerTopic);
+    }
     final temp = [];
     _myDolboList.value.forEach((dynamic element) => temp.add(element));
-    temp.forEach((dynamic element) {
+    temp.asMap().forEach((index, element) {
       if (element.id == target.id) {
+        idx = index;
         setState(() => _myDolboList.value.remove(element));
       }
     });
+    platformProvider.myDolboListNum = _myDolboList.value.length;
+    platformProvider.myDolboList = _myDolboList.value;
+    if (platformProvider.lastSeen > _myDolboList.value.length) {
+      final maxPageNum = _myDolboList.value.length;
+      platformProvider.lastSeen = maxPageNum;
+      await _encryptedStorageService.saveData(
+          'last_seen', maxPageNum.toString());
+    }
+    if (platformProvider.defualtDolbo.id != target.id) {
+      await _encryptedStorageService.saveData(
+          'list_num', _myDolboList.value.length.toString());
+      await _encryptedStorageService.removeData('element_$idx');
+    }
   }
 
   void _addDolbo(DolboModel target) async {
+    final platformProvider = Provider.of<Platform>(context, listen: false);
     final dolboDetails = await _realApiService.getDolboData(target.id!);
+    if (platformProvider.isAlarmAllowed) {
+      if (platformProvider.alarmThreshold == dolboState.DANGER) {
+        final warningTopic =
+            TopicHandler().makeTopicStr(target.id!, dolboState.DANGER);
+        await FirebaseMessaging.instance.subscribeToTopic(warningTopic);
+      }
+      final dangerTopic =
+          TopicHandler().makeTopicStr(target.id!, dolboState.OVERFLOW);
+      await FirebaseMessaging.instance.subscribeToTopic(dangerTopic);
+    }
     setState(() => _myDolboList.value.add(dolboDetails));
+    platformProvider.myDolboListNum = _myDolboList.value.length;
+    platformProvider.myDolboList = _myDolboList.value;
+    await _encryptedStorageService.saveData(
+        'list_num', _myDolboList.value.length.toString());
+    await _encryptedStorageService.saveData(
+        'element_${_myDolboList.value.length - 1}', target.id!);
   }
 
   void _resetTempData() {
@@ -126,16 +170,19 @@ class _MapView extends State<MapView> {
   }
 
   void _onTapMarker(int index) async {
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _isCameraChangedByGesture = true);
     await _mapController.moveCamera(CameraUpdate.scrollTo(LatLng(
         _searchDolboList[index].latitude, _searchDolboList[index].longitude)));
-    setState(() {
-      _isCameraChangedByGesture = false;
-      if (_selected >= 0) {
-        _markerList.value[_selected].setMarkerSmall(context);
-      }
-      _selected = index;
-      _markerList.value[index].setMarkerBig(context);
+    Future.delayed(const Duration(milliseconds: 400), () {
+      setState(() {
+        _isCameraChangedByGesture = false;
+        if (_selected >= 0) {
+          _markerList.value[_selected].setMarkerSmall(context);
+        }
+        _selected = index;
+        _markerList.value[index].setMarkerBig(context);
+      });
     });
   }
 
@@ -159,13 +206,14 @@ class _MapView extends State<MapView> {
   }
 
   void _onTapAddressFromList(int index) async {
-    setState(() => _isCameraChangedByGesture = false);
+    setState(() => _isCameraChangedByGesture = true);
     await _mapController.moveCamera(CameraUpdate.toCameraPosition(
         CameraPosition(
             target: LatLng(_searchResultList[index].latitude!,
                 _searchResultList[index].longitude!),
             zoom: 14.0)));
     Future.delayed(const Duration(milliseconds: 200), () {
+      setState(() => _isCameraChangedByGesture = false);
       _mapController.getVisibleRegion().then((bounds) async {
         await _setMarker(bounds, _searchResultList[index].id!);
       });
@@ -179,6 +227,7 @@ class _MapView extends State<MapView> {
       _addressList = [];
       _nameList = [];
     });
+    _onCameraChange();
   }
 
   Future<void> _setMarker(LatLngBounds bounds, String? selectedId) async {
@@ -221,8 +270,6 @@ class _MapView extends State<MapView> {
   }
 
   void _onTapLike(DolboModel dolboData) {
-    final platformProvider = Provider.of<Platform>(context, listen: false);
-    final numDolboList = platformProvider.myDolboListNum;
     bool isContained = _checkContained(dolboData.id!);
     showDialog<void>(
       context: context,
@@ -242,22 +289,9 @@ class _MapView extends State<MapView> {
                 Navigator.of(context).pop();
                 if (isContained) {
                   _removeDolbo(dolboData);
-                  platformProvider.myDolboListNum = numDolboList - 1;
-                  if (platformProvider.defualtDolbo.id != dolboData.id) {
-                    await _encryptedStorageService.saveData(
-                        'list_num', (numDolboList - 1).toString());
-                    await _encryptedStorageService
-                        .removeData('element_$numDolboList');
-                  }
                 } else {
                   _addDolbo(dolboData);
-                  platformProvider.myDolboListNum = numDolboList + 1;
-                  await _encryptedStorageService.saveData(
-                      'list_num', (numDolboList + 1).toString());
-                  await _encryptedStorageService.saveData(
-                      'element_$numDolboList', dolboData.id!);
                 }
-                platformProvider.myDolboList = _myDolboList.value;
               },
             ),
             TextButton(
@@ -339,6 +373,7 @@ class _MapView extends State<MapView> {
                                 return value
                                     ? Container(
                                         width: context.pWidth,
+                                        height: context.pHeight,
                                         decoration: BoxDecoration(
                                             color:
                                                 Colors.black.withOpacity(0.5)),
@@ -365,15 +400,17 @@ class _MapView extends State<MapView> {
   Widget _renderNaverMap(List<MapMarker> markerList) {
     return SizedBox(
         child: NaverMap(
-            zoomGestureEnable: true,
-            onMapCreated: (NaverMapController ct) {
-              _mapController = ct;
-            },
-            mapType: _mapType,
-            markers: markerList,
-            locationButtonEnable: true,
-            initialCameraPosition: _cameraPosition,
-            onCameraIdle: () => _onCameraChange()));
+      zoomGestureEnable: true,
+      onMapCreated: (NaverMapController ct) {
+        _mapController = ct;
+      },
+      mapType: _mapType,
+      markers: markerList,
+      locationButtonEnable: true,
+      initialCameraPosition: _cameraPosition,
+      onCameraIdle: () => _onCameraChange(),
+      onMapTap: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+    ));
   }
 
   List<Widget> _renderAddressList() {
@@ -538,7 +575,7 @@ class _MapView extends State<MapView> {
                   Text(
                       dolboData.waterLevel == 0
                           ? '-'
-                          : '${dolboData.waterLevel}cm',
+                          : '${dolboData.waterLevel! / 10}cm',
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: fontSizeSmall,

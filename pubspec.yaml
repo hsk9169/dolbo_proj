@@ -37,10 +37,11 @@ dependencies:
   naver_map_plugin: ^0.9.6
   provider: ^6.0.3
   flutter_secure_storage: ^6.0.0
+  shared_preferences: ^2.0.15
   http: ^0.13.5
-  flutter_dotenv: ^5.0.2
-  firebase_core: ^1.24.0
-  firebase_messaging: ^13.1.0
+  firebase_core: ^2.1.1
+  firebase_messaging: ^14.0.3
+  flutter_local_notifications: ^9.5.0
   syncfusion_flutter_charts: ^20.3.38
   encrypt: ^5.0.1
   flutter_app_badger: ^1.5.0

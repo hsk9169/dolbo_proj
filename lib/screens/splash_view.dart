@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'package:dolbo_app/const/dolbo_state.dart';
 import 'package:dolbo_app/services/real_api_service.dart';
 import 'package:naver_map_plugin/naver_map_plugin.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dolbo_app/utils/topic_handler.dart';
 import 'package:dolbo_app/sizes.dart';
 import 'package:dolbo_app/routes.dart';
 import 'package:dolbo_app/screens/screens.dart';
@@ -22,18 +26,25 @@ class _SplashView extends State<SplashView> {
   final _locationService = LocationService();
   final _realApiService = RealApiService();
   int _debugLevel = 0;
+  late List<DolboModel> _myDolboList;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
       await _initData();
+      await _setAlarmData();
       await _routeToHome();
     });
   }
 
   Future<void> _initData() async {
     await _encryptedStorageService.initStorage();
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('first_run') ?? true) {
+      await _encryptedStorageService.deleteAllData();
+      prefs.setBool('first_run', false);
+    }
     await _getStoredData();
   }
 
@@ -66,7 +77,10 @@ class _SplashView extends State<SplashView> {
     }
     platformProvider.myDolboList = myList;
     platformProvider.defualtDolbo = nearest;
-    setState(() => _debugLevel++);
+    setState(() {
+      _myDolboList = myList;
+      _debugLevel++;
+    });
   }
 
   Future<dynamic> _getCurrentLocation() async {
@@ -82,8 +96,41 @@ class _SplashView extends State<SplashView> {
     return curPosition;
   }
 
+  Future<void> _setAlarmData() async {
+    final platformProvider = Provider.of<Platform>(context, listen: false);
+    final isAllowed = await _encryptedStorageService.readData('alarm_allowed');
+    final threshold =
+        await _encryptedStorageService.readData('alarm_threshold');
+    if (isAllowed == 'TRUE') {
+      _myDolboList.forEach((DolboModel element) async {
+        if (threshold == dolboState.DANGER) {
+          final warningTopic =
+              TopicHandler().makeTopicStr(element.id!, dolboState.DANGER);
+          await FirebaseMessaging.instance.subscribeToTopic(warningTopic);
+          final dangerTopic =
+              TopicHandler().makeTopicStr(element.id!, dolboState.OVERFLOW);
+          await FirebaseMessaging.instance.subscribeToTopic(dangerTopic);
+        } else {
+          final warningTopic =
+              TopicHandler().makeTopicStr(element.id!, dolboState.DANGER);
+          await FirebaseMessaging.instance.unsubscribeFromTopic(warningTopic);
+          final dangerTopic =
+              TopicHandler().makeTopicStr(element.id!, dolboState.OVERFLOW);
+          await FirebaseMessaging.instance.subscribeToTopic(dangerTopic);
+        }
+        final dangerTopic =
+            TopicHandler().makeTopicStr(element.id!, dolboState.OVERFLOW);
+        await FirebaseMessaging.instance.subscribeToTopic(dangerTopic);
+      });
+    }
+    platformProvider.isAlarmAllowed = isAllowed == 'TRUE' ? true : false;
+    platformProvider.alarmThreshold = threshold;
+  }
+
   Future<void> _routeToHome() async {
+    final platformProvider = Provider.of<Platform>(context, listen: false);
     await _encryptedStorageService.readData('last_seen').then((pageNum) {
+      platformProvider.lastSeen = pageNum.isNotEmpty ? int.parse(pageNum) : 0;
       Future.delayed(const Duration(seconds: 1), () {
         Navigator.pushAndRemoveUntil(
             context,

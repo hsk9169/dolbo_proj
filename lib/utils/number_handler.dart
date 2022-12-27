@@ -98,18 +98,20 @@ class NumberHandler {
     int intHour = int.parse(hour);
     String day = '';
     if (intHour > 11 && intHour < 24) {
-      day = 'PM';
-      intHour = intHour - 12;
+      day = '오후';
+      if (intHour > 12) {
+        intHour = intHour - 12;
+      }
     } else {
       if (intHour == 24) {
         intHour = 0;
       }
-      day = 'AM';
+      day = '오전';
     }
     if (intHour < 10) {
-      ret = '$date 0$intHour:$min$day';
+      ret = '$date $day 0$intHour:$min';
     } else {
-      ret = '$date $intHour:$min$day';
+      ret = '$date $day $intHour:$min';
     }
     return ret;
   }

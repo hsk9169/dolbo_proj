@@ -54,7 +54,16 @@ class LikeElement extends StatelessWidget {
                                   color: MyColors.fontColor,
                                   fontSize: context.pWidth * 0.04,
                                   fontWeight: FontWeight.normal,
-                                ))
+                                )),
+                            Padding(
+                                padding:
+                                    EdgeInsets.all(context.pHeight * 0.002)),
+                            Text(dolboData!.lastDataTime ?? '----',
+                                style: TextStyle(
+                                  color: MyColors.fontColor,
+                                  fontSize: context.pWidth * 0.02,
+                                  fontWeight: FontWeight.normal,
+                                )),
                           ],
                         )),
                     Expanded(

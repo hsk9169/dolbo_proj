@@ -29,7 +29,10 @@ class DolboMetric extends StatelessWidget {
                     fontSize: fontSize,
                     fontWeight: FontWeight.bold)),
             Padding(padding: EdgeInsets.all(vPadding)),
-            Text(dolboData.waterLevel == 0 ? '-' : '${dolboData.waterLevel}cm',
+            Text(
+                dolboData.waterLevel == 0
+                    ? '-'
+                    : '${dolboData.waterLevel! / 10}cm',
                 style: TextStyle(
                     color: MyColors.fontColor,
                     fontSize: fontSize,

@@ -51,7 +51,7 @@ class _DolboState extends State<DolboState> {
                 fontWeight: FontWeight.bold,
               )),
           Padding(padding: EdgeInsets.all(context.pHeight * 0.005)),
-          Text('$time 현재',
+          Text('$time 수신',
               style: TextStyle(
                 color: MyColors.fontColor,
                 fontSize: context.pHeight * 0.022,
