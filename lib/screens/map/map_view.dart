@@ -29,7 +29,7 @@ class _MapView extends State<MapView> {
   final TextEditingController _textController = TextEditingController();
   List<String> _addressList = [];
   List<String> _nameList = [];
-  final ValueNotifier<bool> _isLoading = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _isSearchLoading = ValueNotifier<bool>(false);
   final ValueNotifier<bool> _isAddressSelected = ValueNotifier<bool>(false);
   final ValueNotifier<List<DolboModel>> _myDolboList =
       ValueNotifier<List<DolboModel>>([]);
@@ -37,7 +37,7 @@ class _MapView extends State<MapView> {
       ValueNotifier<List<MapMarker>>([]);
   List<DolboModel> _searchDolboList = [];
   CameraPosition _cameraPosition = CameraPosition(
-      target: LatLng(36.35052084022028, 127.38484589824647), zoom: 12.0);
+      target: LatLng(36.35052084022028, 127.38484589824647), zoom: 11.5);
 
   int _selected = -1;
   bool _isCameraChangedByGesture = false;
@@ -47,12 +47,13 @@ class _MapView extends State<MapView> {
 
   List<DolboModel> _searchResultList = [];
 
+  bool _isLoading = false;
+
   @override
   void initState() {
     super.initState();
     _textController.addListener(_onTextChanged);
     _initStorage();
-
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
       await _initData();
       _onCameraChange();
@@ -97,7 +98,7 @@ class _MapView extends State<MapView> {
     }
   }
 
-  void _removeDolbo(DolboModel target) async {
+  Future<void> _removeDolbo(DolboModel target) async {
     final platformProvider = Provider.of<Platform>(context, listen: false);
     int? idx;
     if (platformProvider.isAlarmAllowed) {
@@ -131,7 +132,7 @@ class _MapView extends State<MapView> {
     }
   }
 
-  void _addDolbo(DolboModel target) async {
+  Future<void> _addDolbo(DolboModel target) async {
     final platformProvider = Provider.of<Platform>(context, listen: false);
     final dolboDetails = await _realApiService.getDolboData(target.id!);
     if (platformProvider.isAlarmAllowed) {
@@ -190,7 +191,7 @@ class _MapView extends State<MapView> {
 
   void _onSearchAddress(String address) async {
     if (address.isNotEmpty) {
-      setState(() => _isLoading.value = true);
+      setState(() => _isSearchLoading.value = true);
       final res = await _realApiService.getDolboListByKeyword(address);
       _resetTempData();
       setState(() {
@@ -200,7 +201,7 @@ class _MapView extends State<MapView> {
           _addressList.add(element.address!);
         });
         _isAddressSelected.value = true;
-        _isLoading.value = false;
+        _isSearchLoading.value = false;
       });
     }
   }
@@ -212,7 +213,7 @@ class _MapView extends State<MapView> {
             target: LatLng(_searchResultList[index].latitude!,
                 _searchResultList[index].longitude!),
             zoom: 14.0)));
-    Future.delayed(const Duration(milliseconds: 200), () {
+    Future.delayed(const Duration(milliseconds: 400), () {
       setState(() => _isCameraChangedByGesture = false);
       _mapController.getVisibleRegion().then((bounds) async {
         await _setMarker(bounds, _searchResultList[index].id!);
@@ -287,11 +288,13 @@ class _MapView extends State<MapView> {
               child: const Text('확인'),
               onPressed: () async {
                 Navigator.of(context).pop();
+                setState(() => _isLoading = true);
                 if (isContained) {
-                  _removeDolbo(dolboData);
+                  await _removeDolbo(dolboData);
                 } else {
-                  _addDolbo(dolboData);
+                  await _addDolbo(dolboData);
                 }
+                setState(() => _isLoading = false);
               },
             ),
             TextButton(
@@ -308,93 +311,108 @@ class _MapView extends State<MapView> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-        onTapDown: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-        child: Scaffold(
-          resizeToAvoidBottomInset: false,
-          body: SafeArea(
-              top: true,
-              bottom: false,
-              child: ValueListenableBuilder(
-                  valueListenable: _markerList,
-                  builder: (BuildContext context, List<MapMarker> value,
-                      Widget? child) {
-                    return Stack(children: [
-                      Column(children: [
-                        Container(
-                            padding: EdgeInsets.only(
-                              left: context.pWidth * 0.02,
-                              right: context.pWidth * 0.02,
-                            ),
-                            alignment: Alignment.center,
-                            width: context.pWidth,
-                            height: context.pHeight * 0.06,
-                            child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  _goBackIcon(),
-                                  SizedBox(
-                                      width: context.pWidth * 0.7,
-                                      height: context.pHeight * 0.06,
-                                      child: TextField(
-                                          onSubmitted: (value) {
-                                            _onSearchAddress(value);
-                                          },
-                                          textAlignVertical:
-                                              TextAlignVertical.center,
-                                          style: TextStyle(
-                                              fontSize:
-                                                  context.pHeight * 0.025),
-                                          autofocus: false,
-                                          decoration: InputDecoration(
-                                              border: InputBorder.none,
-                                              hintText: '장소 검색'),
-                                          controller: _textController,
-                                          keyboardType: TextInputType.text)),
-                                  ValueListenableBuilder(
-                                      builder: (BuildContext context,
-                                          bool value, Widget? child) {
-                                        return value
-                                            ? CupertinoActivityIndicator()
-                                            : _searchIcon();
-                                      },
-                                      valueListenable: _isLoading),
-                                  _deleteIcon(),
-                                ])),
-                        Expanded(
-                            child: Stack(children: [
-                          _renderNaverMap(value),
-                          ValueListenableBuilder(
-                              valueListenable: _isAddressSelected,
-                              builder: (BuildContext context, bool value,
-                                  Widget? child) {
-                                return value
-                                    ? Container(
-                                        width: context.pWidth,
-                                        height: context.pHeight,
-                                        decoration: BoxDecoration(
-                                            color:
-                                                Colors.black.withOpacity(0.5)),
-                                        child: SingleChildScrollView(
-                                            child: Column(
-                                                children:
-                                                    _renderAddressList())))
-                                    : SizedBox();
-                              })
-                        ]))
-                      ]),
-                      value.isNotEmpty
-                          ? Align(
-                              alignment: Alignment.bottomCenter,
-                              child: _selected < 0
-                                  ? null
-                                  : _dolboPopup(_searchDolboList[_selected]))
-                          : SizedBox(),
-                    ]);
-                  })),
-        ));
+    return AbsorbPointer(
+        absorbing: _isLoading,
+        child: Stack(children: [
+          GestureDetector(
+              onTapDown: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+              child: Scaffold(
+                resizeToAvoidBottomInset: false,
+                body: SafeArea(
+                    top: true,
+                    bottom: false,
+                    child: ValueListenableBuilder(
+                        valueListenable: _markerList,
+                        builder: (BuildContext context, List<MapMarker> value,
+                            Widget? child) {
+                          return Stack(children: [
+                            Column(children: [
+                              Container(
+                                  padding: EdgeInsets.only(
+                                    left: context.pWidth * 0.02,
+                                    right: context.pWidth * 0.02,
+                                  ),
+                                  alignment: Alignment.center,
+                                  width: context.pWidth,
+                                  height: context.pHeight * 0.06,
+                                  child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        _goBackIcon(),
+                                        SizedBox(
+                                            width: context.pWidth * 0.7,
+                                            height: context.pHeight * 0.06,
+                                            child: TextField(
+                                                onSubmitted: (value) {
+                                                  _onSearchAddress(value);
+                                                },
+                                                textAlignVertical:
+                                                    TextAlignVertical.center,
+                                                style: TextStyle(
+                                                    fontSize: context.pHeight *
+                                                        0.025),
+                                                autofocus: false,
+                                                decoration: InputDecoration(
+                                                    border: InputBorder.none,
+                                                    hintText: '장소 검색'),
+                                                controller: _textController,
+                                                keyboardType:
+                                                    TextInputType.text)),
+                                        ValueListenableBuilder(
+                                            builder: (BuildContext context,
+                                                bool value, Widget? child) {
+                                              return value
+                                                  ? CupertinoActivityIndicator()
+                                                  : _searchIcon();
+                                            },
+                                            valueListenable: _isSearchLoading),
+                                        _deleteIcon(),
+                                      ])),
+                              Expanded(
+                                  child: Stack(children: [
+                                _renderNaverMap(value),
+                                ValueListenableBuilder(
+                                    valueListenable: _isAddressSelected,
+                                    builder: (BuildContext context, bool value,
+                                        Widget? child) {
+                                      return value
+                                          ? Container(
+                                              width: context.pWidth,
+                                              height: context.pHeight,
+                                              decoration: BoxDecoration(
+                                                  color: Colors.black
+                                                      .withOpacity(0.5)),
+                                              child: SingleChildScrollView(
+                                                  child: Column(
+                                                      children:
+                                                          _renderAddressList())))
+                                          : SizedBox();
+                                    })
+                              ]))
+                            ]),
+                            value.isNotEmpty
+                                ? Align(
+                                    alignment: Alignment.bottomCenter,
+                                    child: _selected < 0
+                                        ? null
+                                        : _dolboPopup(
+                                            _searchDolboList[_selected]))
+                                : SizedBox(),
+                          ]);
+                        })),
+              )),
+          _isLoading
+              ? Container(
+                  width: context.pWidth,
+                  height: context.pHeight,
+                  color: Colors.grey.withOpacity(0.4),
+                  child: CupertinoActivityIndicator(
+                      radius: context.pHeight * 0.02))
+              : SizedBox()
+        ]));
   }
 
   Widget _renderNaverMap(List<MapMarker> markerList) {

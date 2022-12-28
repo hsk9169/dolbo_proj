@@ -49,6 +49,7 @@ dependencies:
   flutter_shake_animated: ^0.0.5
   geolocator: ^9.0.2
   share_plus: ^6.3.0
+  flutter_native_timezone: ^2.0.0
 
 dev_dependencies:
   flutter_test:

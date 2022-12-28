@@ -1,17 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:dolbo_app/widgets/dismiss_keyboard.dart';
-import 'package:dolbo_app/providers/platform_provider.dart';
-import 'package:dolbo_app/routes.dart';
-import 'package:dolbo_app/screens/screens.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_native_timezone/flutter_native_timezone.dart';
+import 'package:dolbo_app/providers/platform_provider.dart';
+import 'package:dolbo_app/routes.dart';
+import 'package:dolbo_app/screens/screens.dart';
 import 'firebase_options.dart';
 
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+final notificationDetails = NotificationDetails(
+  // Android details
+  android: AndroidNotificationDetails(
+      'high_importance_channel', 'High Importance Channel',
+      channelDescription: "ashwin",
+      importance: Importance.max,
+      priority: Priority.max),
+  // iOS details
+  iOS: IOSNotificationDetails(),
+);
 
 class MyApp extends StatefulWidget {
   @override
@@ -19,9 +33,6 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-
   AndroidNotificationChannel channel = const AndroidNotificationChannel(
     'high_importance_channel', // id
     'High Importance Notifications', // title
@@ -30,47 +41,35 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     importance: Importance.high,
   );
 
-  final notificationDetails = NotificationDetails(
-    // Android details
-    android: AndroidNotificationDetails('main_channel', 'Main Channel',
-        channelDescription: "ashwin",
-        importance: Importance.max,
-        priority: Priority.max),
-    // iOS details
-    iOS: IOSNotificationDetails(),
-  );
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   Widget build(BuildContext context) {
-    return DismissKeyboard(
-        child: MultiProvider(
-            providers: [
-          ChangeNotifierProvider<Platform>.value(value: Platform()),
-        ],
-            child: MaterialApp(
-              navigatorObservers: [routeObserver],
-              debugShowCheckedModeBanner: false,
-              theme: ThemeData(
-                primarySwatch: Colors.blue,
-                scaffoldBackgroundColor: Colors.white,
-                bottomSheetTheme: BottomSheetThemeData(
-                    backgroundColor: Colors.black.withOpacity(0)),
-              ),
-              routes: {
-                Routes.SPLASH: (context) => SplashView(),
-                Routes.HOME: (context) =>
-                    HomeView(ModalRoute.of(context)!.settings.arguments as int),
-                Routes.MAP: (context) => MapView(),
-                Routes.LIKE: (context) => LikeView(),
-                Routes.NOTIFY: (context) => NotifyView(),
-              },
-              initialRoute: Routes.SPLASH,
-            )));
+    return MaterialApp(
+      navigatorKey: navigatorKey,
+      navigatorObservers: [routeObserver],
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+        scaffoldBackgroundColor: Colors.white,
+        bottomSheetTheme:
+            BottomSheetThemeData(backgroundColor: Colors.black.withOpacity(0)),
+      ),
+      routes: {
+        Routes.SPLASH: (context) => SplashView(),
+        Routes.HOME: (context) =>
+            HomeView(ModalRoute.of(context)!.settings.arguments as int),
+        Routes.MAP: (context) => MapView(),
+        Routes.LIKE: (context) => LikeView(),
+        Routes.NOTIFY: (context) => NotifyView(),
+      },
+      initialRoute: Routes.SPLASH,
+    );
   }
 
   @override
   void initState() {
-    _initMessaging();
+    _initMessaging(context);
     super.initState();
   }
 
@@ -80,7 +79,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  void _initMessaging() async {
+  void _initMessaging(BuildContext context) async {
+    tz.initializeTimeZones();
+    final String? timeZoneName = await FlutterNativeTimezone.getLocalTimezone();
+    tz.setLocalLocation(tz.getLocation(timeZoneName!));
     await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform);
 
@@ -123,14 +125,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       AndroidNotification? android = message.notification?.android;
 
       if (android != null) {
-        print('android message received');
+        showLocalNotification(notification!, true);
       }
-
-      showLocalNotification(notification!, true);
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      print('open app by tapping message');
+      final platformProvider = Provider.of<Platform>(context, listen: false);
+      final myDolboList = platformProvider.myDolboList;
+      String targetDolboId = message.data['id'];
+      int pageNum = 0;
+      myDolboList.asMap().forEach((key, value) {
+        if (value.id == targetDolboId) {
+          pageNum = key + 1;
+        }
+      });
+      navigatorKey.currentState!.pushNamed(Routes.HOME, arguments: pageNum);
     });
   }
 }
@@ -138,11 +147,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   RemoteNotification? notification = message.notification;
   AndroidNotification? android = message.notification?.android;
-
-  showLocalNotification(notification!, false);
 }
 
 Future<void> showLocalNotification(
     RemoteNotification notification, bool isForeground) async {
+  _flutterLocalNotificationsPlugin.zonedSchedule(
+      0,
+      notification!.title,
+      notification.body,
+      tz.TZDateTime.now(tz.local).add(const Duration(milliseconds: 500)),
+      notificationDetails,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      androidAllowWhileIdle: true);
   print('${notification.title} : ${notification.body}');
 }

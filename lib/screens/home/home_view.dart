@@ -17,11 +17,12 @@ import 'package:dolbo_app/services/real_api_service.dart';
 import './dolbo_state.dart';
 import './dolbo_chart.dart';
 import './dolbo_metric.dart';
+import 'package:dolbo_app/app.dart';
 
 class HomeView extends StatefulWidget {
-  final int? arg;
+  final int? pageNum;
 
-  const HomeView(this.arg);
+  const HomeView(this.pageNum);
 
   @override
   State<StatefulWidget> createState() => _HomeView();
@@ -47,10 +48,8 @@ class _HomeView extends State<HomeView> {
   void initState() {
     super.initState();
     _pageController =
-        PageController(initialPage: widget.arg ?? 0, keepPage: true);
-    _encryptedStorageService.initStorage();
-    _future = _initMyDolboList(widget.arg ?? 0);
-    _pageNum = widget.arg!;
+        PageController(initialPage: widget.pageNum ?? 0, keepPage: true);
+    _future = _initMyDolboList(widget.pageNum ?? 0);
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       _startTimer();
     });
@@ -64,12 +63,15 @@ class _HomeView extends State<HomeView> {
   }
 
   Future<List<DolboModel>> _initMyDolboList(int pageNum) async {
+    await _encryptedStorageService.initStorage();
     final platformProvider = Provider.of<Platform>(context, listen: false);
     DolboModel tempDefaultDolbo;
     List<DolboModel> tempMyDolboList;
     if (_pageController.hasClients) {
       _pageController.jumpToPage(pageNum);
     }
+    await _encryptedStorageService.saveData('last_seen', pageNum.toString());
+    platformProvider.lastSeen = pageNum;
     tempDefaultDolbo = await _realApiService
         .getDolboData(platformProvider.defualtDolbo.id!)
         .then((res) {

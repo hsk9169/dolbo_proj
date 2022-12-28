@@ -181,8 +181,10 @@ class _LikeView extends State<LikeView> {
   Widget _defaultDolbo() {
     return GestureDetector(
         onTap: () {
-          _updateTimer.cancel();
-          Navigator.of(context).pushNamed(Routes.HOME, arguments: 0);
+          if (!_isEditting) {
+            _updateTimer.cancel();
+            Navigator.of(context).pushNamed(Routes.HOME, arguments: 0);
+          }
         },
         child: LikeElement(
             dolboData: _defaultDolboData, isEditting: false, onDelete: null));
@@ -252,11 +254,11 @@ class _LikeView extends State<LikeView> {
         ),
         child: GestureDetector(
             onTap: () {
-              _isEditting ? null : _updateTimer.cancel();
-              Navigator.of(context).pushNamed(Routes.MAP).then((_) {
-                _startTimer();
-                _fetchMyDolboList();
-              });
+              _isEditting
+                  ? null
+                  : Navigator.of(context).pushNamed(Routes.MAP).then((_) {
+                      _fetchMyDolboList();
+                    });
             },
             child: Container(
                 height: context.pHeight * 0.07,
