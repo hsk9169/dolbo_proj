@@ -9,6 +9,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_native_timezone/flutter_native_timezone.dart';
 import 'package:dolbo_app/providers/platform_provider.dart';
+import 'package:dolbo_app/services/encrypted_storage_service.dart';
 import 'package:dolbo_app/routes.dart';
 import 'package:dolbo_app/screens/screens.dart';
 import 'firebase_options.dart';
@@ -16,6 +17,8 @@ import 'firebase_options.dart';
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
+final _encryptedStorageService = EncryptedStorageService();
+
 final notificationDetails = NotificationDetails(
   // Android details
   android: AndroidNotificationDetails(
@@ -80,6 +83,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   void _initMessaging(BuildContext context) async {
+    await _encryptedStorageService.initStorage();
     tz.initializeTimeZones();
     final String? timeZoneName = await FlutterNativeTimezone.getLocalTimezone();
     tz.setLocalLocation(tz.getLocation(timeZoneName!));
@@ -118,8 +122,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     await _flutterLocalNotificationsPlugin.initialize(initializationSettings,
         onSelectNotification: (String? payload) => print(payload!));
 
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
     FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       RemoteNotification? notification = message.notification;
       AndroidNotification? android = message.notification?.android;
@@ -130,30 +132,25 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      int pageNum = 0;
       final platformProvider = Provider.of<Platform>(context, listen: false);
       final myDolboList = platformProvider.myDolboList;
       String targetDolboId = message.data['id'];
-      int pageNum = 0;
-      myDolboList.asMap().forEach((key, value) {
-        if (value.id == targetDolboId) {
-          pageNum = key + 1;
+      for (int i = 0; i < myDolboList.length; i++) {
+        if (myDolboList[i].id == targetDolboId) {
+          pageNum = i + 1;
         }
-      });
+      }
       navigatorKey.currentState!.pushNamed(Routes.HOME, arguments: pageNum);
     });
   }
-}
-
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  RemoteNotification? notification = message.notification;
-  AndroidNotification? android = message.notification?.android;
 }
 
 Future<void> showLocalNotification(
     RemoteNotification notification, bool isForeground) async {
   _flutterLocalNotificationsPlugin.zonedSchedule(
       0,
-      notification!.title,
+      notification.title,
       notification.body,
       tz.TZDateTime.now(tz.local).add(const Duration(milliseconds: 500)),
       notificationDetails,

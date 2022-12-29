@@ -67,7 +67,7 @@ class _DolboChart extends State<DolboChart> {
         padding: EdgeInsets.all(context.pWidth * 0.01),
         child: SfCartesianChart(
             primaryXAxis: CategoryAxis(),
-            primaryYAxis: NumericAxis(labelFormat: '{value}mm'),
+            primaryYAxis: NumericAxis(labelFormat: '{value}cm'),
             legend: Legend(position: LegendPosition.bottom, isVisible: true),
             series: <ChartSeries<ChartData, String>>[
               LineSeries<ChartData, String>(
@@ -75,20 +75,20 @@ class _DolboChart extends State<DolboChart> {
                   color: Colors.blue,
                   dataSource: _sourceData,
                   xValueMapper: (ChartData rtData, _) => rtData.time,
-                  yValueMapper: (ChartData rtData, _) => rtData.value),
+                  yValueMapper: (ChartData rtData, _) => rtData.value / 10),
               LineSeries<ChartData, String>(
                 name: '위험',
                 color: Colors.orange,
                 dataSource: _warningData,
                 xValueMapper: (ChartData rtData, _) => rtData.time,
-                yValueMapper: (ChartData rtData, _) => rtData.value,
+                yValueMapper: (ChartData rtData, _) => rtData.value / 10,
               ),
               LineSeries<ChartData, String>(
                 name: '범람',
                 color: Colors.red,
                 dataSource: _dangerData,
                 xValueMapper: (ChartData rtData, _) => rtData.time,
-                yValueMapper: (ChartData rtData, _) => rtData.value,
+                yValueMapper: (ChartData rtData, _) => rtData.value / 10,
               ),
             ],
             tooltipBehavior:

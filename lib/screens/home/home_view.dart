@@ -43,6 +43,7 @@ class _HomeView extends State<HomeView> {
 
   late Timer _updateTimer;
   bool _isInitialized = false;
+  int _timerSemaphore = 0;
 
   @override
   void initState() {
@@ -70,8 +71,6 @@ class _HomeView extends State<HomeView> {
     if (_pageController.hasClients) {
       _pageController.jumpToPage(pageNum);
     }
-    await _encryptedStorageService.saveData('last_seen', pageNum.toString());
-    platformProvider.lastSeen = pageNum;
     tempDefaultDolbo = await _realApiService
         .getDolboData(platformProvider.defualtDolbo.id!)
         .then((res) {
@@ -105,17 +104,30 @@ class _HomeView extends State<HomeView> {
       _pageList = [DolboState(dolboData: tempDefaultDolbo), ...tempWidgetList];
       _isInitialized = true;
     });
+    platformProvider.lastSeen = pageNum;
+    platformProvider.myDolboList = tempMyDolboList;
+    await _encryptedStorageService.saveData('last_seen', pageNum.toString());
     return _myDolboList;
   }
 
   void _startTimer() {
-    _updateTimer = Timer.periodic(
-        const Duration(minutes: 5), (Timer timer) => _refreshData());
+    if (_timerSemaphore == 0) {
+      print('home update');
+      _updateTimer = Timer.periodic(
+          const Duration(minutes: 5), (Timer timer) => _refreshData());
+    }
   }
 
-  void _refreshData() async {
+  Future<void> _cancelTimer() async {
     _updateTimer.cancel();
-    await _initMyDolboList(_pageNum).whenComplete(() => _startTimer());
+  }
+
+  Future<void> _refreshData() async {
+    if (_timerSemaphore == 0) {
+      print('update');
+      _updateTimer.cancel();
+      await _initMyDolboList(_pageNum).whenComplete(() => _startTimer());
+    }
   }
 
   void _onPageChanged() async {
@@ -130,6 +142,7 @@ class _HomeView extends State<HomeView> {
   }
 
   void _refreshMyDolboList() async {
+    _startTimer();
     setState(() => _isInitialized = false);
     final platformProvider = Provider.of<Platform>(context, listen: false);
     final pageNum = platformProvider.lastSeen;
@@ -221,12 +234,13 @@ class _HomeView extends State<HomeView> {
                     fontSize: context.pHeight * 0.025,
                     fontWeight: FontWeight.bold,
                     color: MyColors.fontColor)),
-            onTap: () {
-              _updateTimer.cancel();
-              Navigator.of(context).pushNamed(Routes.LIKE).then((_) {
-                _startTimer();
-                _refreshMyDolboList();
-              });
+            onTap: () async {
+              setState(() => _timerSemaphore++);
+              await _cancelTimer().whenComplete(
+                  () => Navigator.of(context).pushNamed(Routes.LIKE).then((_) {
+                        setState(() => _timerSemaphore--);
+                        _refreshMyDolboList();
+                      }));
             },
           ),
           ListTile(
@@ -237,11 +251,13 @@ class _HomeView extends State<HomeView> {
                     fontSize: context.pHeight * 0.025,
                     fontWeight: FontWeight.bold,
                     color: MyColors.fontColor)),
-            onTap: () {
-              _updateTimer.cancel();
-              Navigator.of(context).pushNamed(Routes.NOTIFY).then((_) {
-                _startTimer();
-              });
+            onTap: () async {
+              setState(() => _timerSemaphore++);
+              await _cancelTimer().whenComplete(() =>
+                  Navigator.of(context).pushNamed(Routes.NOTIFY).then((_) {
+                    setState(() => _timerSemaphore--);
+                    _startTimer();
+                  }));
             },
           ),
         ],
@@ -340,12 +356,13 @@ class _HomeView extends State<HomeView> {
 
   Widget __mapIcon() {
     return GestureDetector(
-        onTap: () {
-          _updateTimer.cancel();
-          Navigator.of(context).pushNamed(Routes.MAP).then((_) {
-            _startTimer();
-            _refreshMyDolboList();
-          });
+        onTap: () async {
+          setState(() => _timerSemaphore++);
+          await _cancelTimer().whenComplete(
+              () => Navigator.of(context).pushNamed(Routes.MAP).then((_) {
+                    setState(() => _timerSemaphore--);
+                    _refreshMyDolboList();
+                  }));
         },
         child: Padding(
             padding: EdgeInsets.only(right: context.pWidth * 0.02),
@@ -389,12 +406,13 @@ class _HomeView extends State<HomeView> {
 
   Widget __likeIcon() {
     return GestureDetector(
-        onTap: () {
-          _updateTimer.cancel();
-          Navigator.of(context).pushNamed(Routes.LIKE).then((_) {
-            _startTimer();
-            _refreshMyDolboList();
-          });
+        onTap: () async {
+          setState(() => _timerSemaphore++);
+          await _cancelTimer().whenComplete(
+              () => Navigator.of(context).pushNamed(Routes.LIKE).then((_) {
+                    setState(() => _timerSemaphore--);
+                    _refreshMyDolboList();
+                  }));
         },
         child: Padding(
             padding: EdgeInsets.only(left: context.pWidth * 0.02),

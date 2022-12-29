@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_shake_animated/flutter_shake_animated.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:dolbo_app/models/models.dart';
@@ -26,14 +27,16 @@ class _LikeView extends State<LikeView> {
   late Future<List<DolboModel>> _future;
   final _encryptedStorageService = EncryptedStorageService();
   final _realApiService = RealApiService();
+  bool _isInitialized = false;
 
   late Timer _updateTimer;
+  int _timerSemaphore = 0;
 
   @override
   void initState() {
     super.initState();
     _initStorage();
-    _future = _fetchMyDolboList();
+    _future = _initMyDolboList();
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       _startTimer();
     });
@@ -50,19 +53,17 @@ class _LikeView extends State<LikeView> {
   }
 
   Future<List<DolboModel>> _fetchMyDolboList() async {
-    final platformProvider = Provider.of<Platform>(context, listen: false);
-    setState(() {
-      _defaultDolboData = platformProvider.defualtDolbo;
-      _myDolboList = platformProvider.myDolboList;
-    });
-    return _myDolboList;
+    setState(() => _isInitialized = false);
+    final myDolboList = await _initMyDolboList();
+    setState(() => _myDolboList = myDolboList);
+    _startTimer();
+    return myDolboList;
   }
 
-  Future<void> _initMyDolboList() async {
+  Future<List<DolboModel>> _initMyDolboList() async {
     final platformProvider = Provider.of<Platform>(context, listen: false);
     DolboModel tempDefaultDolbo;
     List<DolboModel> tempMyDolboList;
-
     tempDefaultDolbo =
         await _realApiService.getDolboData(platformProvider.defualtDolbo.id!);
     Iterable<Future<DolboModel>> mappedList =
@@ -79,19 +80,32 @@ class _LikeView extends State<LikeView> {
     });
     tempMyDolboList = await Future.wait(mappedList);
     setState(() {
+      _isInitialized = true;
       _defaultDolboData = tempDefaultDolbo;
       _myDolboList = tempMyDolboList;
     });
+    platformProvider.myDolboList = _myDolboList;
+    return _myDolboList;
   }
 
-  void _startTimer() {
-    _updateTimer = Timer.periodic(
-        const Duration(minutes: 5), (Timer timer) => _refreshData());
+  Future<void> _startTimer() async {
+    if (_timerSemaphore == 0) {
+      print('like update');
+      _updateTimer = Timer.periodic(
+          const Duration(seconds: 1), (Timer timer) => _refreshData());
+    }
+  }
+
+  Future<void> _cancelTimer() async {
+    _updateTimer.cancel();
   }
 
   void _refreshData() async {
-    _updateTimer.cancel();
-    await _initMyDolboList().whenComplete(() => _startTimer());
+    if (_timerSemaphore == 0) {
+      print('update');
+      _updateTimer.cancel();
+      await _initMyDolboList().whenComplete(() => _startTimer());
+    }
   }
 
   void _onDeleteItem(int index) async {
@@ -120,38 +134,51 @@ class _LikeView extends State<LikeView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        resizeToAvoidBottomInset: false,
-        backgroundColor: const Color.fromRGBO(239, 239, 239, 1),
-        appBar: PreferredSize(
-            preferredSize: Size(context.pWidth, context.pHeight * 0.06),
-            child: AppBar(
-                backgroundColor: Colors.white,
-                leading: IconButton(
-                    icon: Icon(Icons.arrow_back_ios,
-                        color: MyColors.fontColor,
-                        size: context.pHeight * 0.035),
-                    onPressed: () {
-                      _updateTimer.cancel();
-                      Navigator.pop(context);
-                    }),
-                title: _appBar(),
-                elevation: 0)),
-        body: FutureBuilder(
-            future: _future,
-            builder: (BuildContext context,
-                AsyncSnapshot<List<DolboModel>> snapshot) {
-              if (snapshot.data != null) {
-                return Column(children: [
-                  Padding(padding: EdgeInsets.all(context.pHeight * 0.01)),
-                  _defaultDolbo(),
-                  _likeList(),
-                  _moveToMapButton(),
-                ]);
-              } else {
-                return SizedBox();
-              }
-            }));
+    return AbsorbPointer(
+        absorbing: !_isInitialized,
+        child: Stack(children: [
+          Scaffold(
+              resizeToAvoidBottomInset: false,
+              backgroundColor: const Color.fromRGBO(239, 239, 239, 1),
+              appBar: PreferredSize(
+                  preferredSize: Size(context.pWidth, context.pHeight * 0.06),
+                  child: AppBar(
+                      backgroundColor: Colors.white,
+                      leading: IconButton(
+                          icon: Icon(Icons.arrow_back_ios,
+                              color: MyColors.fontColor,
+                              size: context.pHeight * 0.035),
+                          onPressed: () async {
+                            await _cancelTimer()
+                                .whenComplete(() => Navigator.pop(context));
+                          }),
+                      title: _appBar(),
+                      elevation: 0)),
+              body: FutureBuilder(
+                  future: _future,
+                  builder: (BuildContext context,
+                      AsyncSnapshot<List<DolboModel>> snapshot) {
+                    if (snapshot.data != null) {
+                      return Column(children: [
+                        Padding(
+                            padding: EdgeInsets.all(context.pHeight * 0.01)),
+                        _defaultDolbo(),
+                        _likeList(),
+                        _moveToMapButton(),
+                      ]);
+                    } else {
+                      return SizedBox();
+                    }
+                  })),
+          _isInitialized
+              ? SizedBox()
+              : Container(
+                  width: context.pWidth,
+                  height: context.pHeight,
+                  color: Colors.grey.withOpacity(0.4),
+                  child: CupertinoActivityIndicator(
+                      radius: context.pHeight * 0.02))
+        ]));
   }
 
   Widget _appBar() {
@@ -164,12 +191,9 @@ class _LikeView extends State<LikeView> {
               fontWeight: FontWeight.bold)),
       GestureDetector(
           onTap: () {
-            if (_isEditting) {
-              _startTimer();
-            } else {
-              _updateTimer.cancel();
-            }
-            setState(() => _isEditting = !_isEditting);
+            setState(() {
+              _isEditting = !_isEditting;
+            });
           },
           child: Text(_isEditting ? '완료' : '편집',
               style: TextStyle(
@@ -180,10 +204,11 @@ class _LikeView extends State<LikeView> {
 
   Widget _defaultDolbo() {
     return GestureDetector(
-        onTap: () {
+        onTap: () async {
           if (!_isEditting) {
-            _updateTimer.cancel();
-            Navigator.of(context).pushNamed(Routes.HOME, arguments: 0);
+            await _cancelTimer().whenComplete(() =>
+                Navigator.of(context).pushNamed(Routes.HOME, arguments: 0));
+            ;
           }
         },
         child: LikeElement(
@@ -253,12 +278,15 @@ class _LikeView extends State<LikeView> {
           right: context.pWidth * 0.03,
         ),
         child: GestureDetector(
-            onTap: () {
-              _isEditting
-                  ? null
-                  : Navigator.of(context).pushNamed(Routes.MAP).then((_) {
-                      _fetchMyDolboList();
-                    });
+            onTap: () async {
+              if (!_isEditting) {
+                setState(() => _timerSemaphore++);
+                await _cancelTimer().whenComplete(
+                    () => Navigator.of(context).pushNamed(Routes.MAP).then((_) {
+                          setState(() => _timerSemaphore--);
+                          _fetchMyDolboList();
+                        }));
+              }
             },
             child: Container(
                 height: context.pHeight * 0.07,
