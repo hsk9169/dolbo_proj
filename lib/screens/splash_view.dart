@@ -178,17 +178,9 @@ class _SplashView extends State<SplashView> {
                           fontSize: context.pHeight * 0.03,
                           fontWeight: FontWeight.bold)),
                   Padding(padding: EdgeInsets.all(context.pHeight * 0.02)),
-                  _debugLevel == 0
-                      ? Text('not initialized')
-                      : _debugLevel == 1
-                          ? Text('got location permission')
-                          : _debugLevel == 2
-                              ? Text('got current location')
-                              : _debugLevel == 3
-                                  ? Text('got nearest dolbo')
-                                  : _debugLevel == 4
-                                      ? Text('set platform  provider')
-                                      : Text('all task done')
+                  _debugLevel < 5
+                      ? Text('앱 초기화 중...($_debugLevel/4)')
+                      : Text('앱 초기화 완료')
                 ])));
   }
 }
