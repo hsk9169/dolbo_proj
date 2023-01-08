@@ -119,17 +119,6 @@ class _MapView extends State<MapView> {
     });
     platformProvider.myDolboListNum = _myDolboList.value.length;
     platformProvider.myDolboList = _myDolboList.value;
-    if (platformProvider.lastSeen > _myDolboList.value.length) {
-      final maxPageNum = _myDolboList.value.length;
-      platformProvider.lastSeen = maxPageNum;
-      await _encryptedStorageService.saveData(
-          'last_seen', maxPageNum.toString());
-    }
-    if (platformProvider.defualtDolbo.id != target.id) {
-      await _encryptedStorageService.saveData(
-          'list_num', _myDolboList.value.length.toString());
-      await _encryptedStorageService.removeData('element_$idx');
-    }
   }
 
   Future<void> _addDolbo(DolboModel target) async {
@@ -148,10 +137,22 @@ class _MapView extends State<MapView> {
     setState(() => _myDolboList.value.add(dolboDetails));
     platformProvider.myDolboListNum = _myDolboList.value.length;
     platformProvider.myDolboList = _myDolboList.value;
+  }
+
+  Future<void> _saveToStorage() async {
+    final platformProvider = Provider.of<Platform>(context, listen: false);
     await _encryptedStorageService.saveData(
-        'list_num', _myDolboList.value.length.toString());
-    await _encryptedStorageService.saveData(
-        'element_${_myDolboList.value.length - 1}', target.id!);
+        'list_num', (_myDolboList.value.length).toString());
+    for (int i = 0; i < _myDolboList.value.length; i++) {
+      await _encryptedStorageService.saveData(
+          'element_$i', _myDolboList.value[i].id!);
+    }
+    if (platformProvider.lastSeen > _myDolboList.value.length) {
+      final maxPageNum = _myDolboList.value.length;
+      platformProvider.lastSeen = maxPageNum;
+      await _encryptedStorageService.saveData(
+          'last_seen', maxPageNum.toString());
+    }
   }
 
   void _resetTempData() {
@@ -266,8 +267,8 @@ class _MapView extends State<MapView> {
     });
   }
 
-  void _onPressGoBack() {
-    Navigator.pop(context);
+  void _onPressGoBack() async {
+    await _saveToStorage().whenComplete(() => Navigator.pop(context));
   }
 
   void _onTapLike(DolboModel dolboData) {

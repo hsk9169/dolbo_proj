@@ -121,9 +121,28 @@ class _LikeView extends State<LikeView> {
     setState(() => _myDolboList.removeAt(index));
     platformProvider.myDolboList = _myDolboList;
     platformProvider.myDolboListNum = _myDolboList.length;
+  }
+
+  void _onReorderItems(int oldIndex, int newIndex) {
+    final platformProvider = Provider.of<Platform>(context, listen: false);
+    setState(() {
+      if (oldIndex < newIndex) {
+        newIndex -= 1;
+      }
+      final DolboModel item = _myDolboList.removeAt(oldIndex);
+      _myDolboList.insert(newIndex, item);
+      platformProvider.myDolboList = _myDolboList;
+    });
+  }
+
+  Future<void> _saveToStorage() async {
+    final platformProvider = Provider.of<Platform>(context, listen: false);
     await _encryptedStorageService.saveData(
         'list_num', (_myDolboList.length).toString());
-    await _encryptedStorageService.removeData('element_$index');
+    for (int i = 0; i < _myDolboList.length; i++) {
+      await _encryptedStorageService.saveData(
+          'element_$i', _myDolboList[i].id!);
+    }
     if (platformProvider.lastSeen > _myDolboList.length) {
       final maxPageNum = _myDolboList.length;
       platformProvider.lastSeen = maxPageNum;
@@ -149,6 +168,7 @@ class _LikeView extends State<LikeView> {
                               color: MyColors.fontColor,
                               size: context.pHeight * 0.035),
                           onPressed: () async {
+                            await _saveToStorage();
                             await _cancelTimer()
                                 .whenComplete(() => Navigator.pop(context));
                           }),
@@ -190,7 +210,7 @@ class _LikeView extends State<LikeView> {
               fontSize: context.pHeight * 0.03,
               fontWeight: FontWeight.bold)),
       GestureDetector(
-          onTap: () {
+          onTap: () async {
             setState(() {
               _isEditting = !_isEditting;
             });
@@ -248,25 +268,8 @@ class _LikeView extends State<LikeView> {
                           isEditting: _isEditting,
                           onDelete: () => _onDeleteItem(index),
                         ))),
-            onReorder: (int oldIndex, int newIndex) async {
-              setState(() {
-                if (oldIndex < newIndex) {
-                  newIndex -= 1;
-                }
-                final DolboModel item = _myDolboList.removeAt(oldIndex);
-                _myDolboList.insert(newIndex, item);
-              });
-              _reorderStorage();
-            }));
-  }
-
-  void _reorderStorage() async {
-    final platformProvider = Provider.of<Platform>(context, listen: false);
-    platformProvider.myDolboListNum = _myDolboList.length;
-    _myDolboList.asMap().forEach((index, element) async {
-      await _encryptedStorageService.saveData(
-          'element_$index', element.id.toString());
-    });
+            onReorder: (int oldIndex, int newIndex) =>
+                _onReorderItems(oldIndex, newIndex)));
   }
 
   Widget _moveToMapButton() {
@@ -281,6 +284,7 @@ class _LikeView extends State<LikeView> {
             onTap: () async {
               if (!_isEditting) {
                 setState(() => _timerSemaphore++);
+                await _saveToStorage();
                 await _cancelTimer().whenComplete(
                     () => Navigator.of(context).pushNamed(Routes.MAP).then((_) {
                           setState(() => _timerSemaphore--);
