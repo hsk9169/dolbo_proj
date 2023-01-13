@@ -17,7 +17,6 @@ import 'package:dolbo_app/services/real_api_service.dart';
 import './dolbo_state.dart';
 import './dolbo_chart.dart';
 import './dolbo_metric.dart';
-import 'package:dolbo_app/app.dart';
 
 class HomeView extends StatefulWidget {
   final int? pageNum;
@@ -392,9 +391,15 @@ class _HomeView extends State<HomeView> {
     }
 
     return GestureDetector(
-        onTap: () {
+        onTap: () async {
           if (text.isNotEmpty) {
-            Share.share(text);
+            if (MediaQuery.of(context).size.shortestSide > 600) {
+              await Share.share(text,
+                  sharePositionOrigin:
+                      Rect.fromLTRB(0, 0, context.pWidth, context.pHeight / 2));
+            } else {
+              await Share.share(text);
+            }
           }
         },
         child: Padding(
